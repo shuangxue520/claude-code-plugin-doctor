@@ -1,0 +1,14 @@
+{
+  "name": "plugin-doctor-marketplace",
+  "description": "Claude Code marketplace for plugin-doctor, a local diagnostics and release-audit plugin.",
+  "owner": {
+    "name": "plugin-doctor contributors"
+  },
+  "plugins": [
+    {
+      "name": "plugin-doctor",
+      "source": "./plugins/plugin-doctor",
+      "description": "Validate Claude Code plugins and skills, probe MCP startup, audit release privacy, verify cache consistency, and install local plugins through the official CLI."
+    }
+  ]
+}

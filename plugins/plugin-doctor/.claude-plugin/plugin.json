@@ -1,0 +1,8 @@
+{
+  "name": "plugin-doctor",
+  "description": "Local Claude Code plugin diagnostics: validate manifests and skills, probe MCP startup, audit release privacy, verify cache consistency, and install through the official CLI.",
+  "version": "0.2.0",
+  "author": {
+    "name": "plugin-doctor contributors"
+  }
+}
