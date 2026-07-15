@@ -1,5 +1,5 @@
 ---
-description: Diagnose, repair, install, release-audit, and verify local Claude Code plugins. Use when a plugin fails to load, `/mcp` shows failed, a plugin needs safe local installation, MCP stdio framing may be wrong, JSON/BOM may be broken, cache versions disagree, or a plugin is being prepared for publication.
+description: Diagnose, fleet-audit, repair, install, release-audit, and verify local Claude Code plugins. Use when a plugin fails to load, `/mcp` shows failed, versions disagree, a plugin needs safe local installation, MCP stdio framing may be wrong, JSON/BOM may be broken, or a plugin is being prepared for publication.
 disable-model-invocation: true
 argument-hint: "[plugin path or failure]"
 ---
@@ -13,6 +13,7 @@ Use this skill before guessing about a failed local plugin.
 ## Workflow
 
 1. Run `mcp__plugin_doctor__plugin_check` with the plugin directory.
+   - When several plugins may be stale or inconsistent, run `mcp__plugin_doctor__plugin_fleet_audit` first.
 2. Fix the first concrete failed check. Common fixes are invalid JSON, UTF-8 BOM, noisy stdout, missing runtime commands, bad `.mcp.json`, stale cache versions, or missing marketplace entries.
 3. Run `plugin_check` again with `probeMcp: true`.
 4. If the plugin is ready but not installed, run `mcp__plugin_doctor__plugin_install_local`.

@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.3.0
+
+- Add `plugin_fleet_audit` for one-call consistency checks across every plugin
+  in a local marketplace.
+- Compare source, marketplace, installed-record, and installed-manifest
+  versions.
+- Report stale caches and orphan installed records without deleting them.
+
 ## 0.2.0
 
 - Add official Claude Code plugin validation to diagnostics.

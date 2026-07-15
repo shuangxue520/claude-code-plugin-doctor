@@ -8,7 +8,8 @@
     {
       "name": "plugin-doctor",
       "source": "./plugins/plugin-doctor",
-      "description": "Validate Claude Code plugins and skills, probe MCP startup, audit release privacy, verify cache consistency, and install local plugins through the official CLI."
+      "description": "Validate Claude Code plugins and skills, audit a full local plugin fleet, probe MCP startup, check release privacy and cache consistency, and install through the official CLI.",
+      "version": "0.3.0"
     }
   ]
 }

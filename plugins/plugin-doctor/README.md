@@ -2,12 +2,13 @@
 
 Local Claude Code diagnostics for plugin development and release preparation.
 
-It keeps four focused tools:
+It keeps five focused tools:
 
 - `plugin_check`: validate a plugin with Claude Code, inspect JSON/BOM issues, check optional MCP servers, probe `initialize` and `tools/list`, and optionally compare the installed cache and marketplace metadata.
 - `plugin_install_local`: copy a validated plugin into the `local-tools` directory marketplace, refresh that marketplace, and call Claude Code's official `plugin install` or `plugin update` command. It never edits `installed_plugins.json` directly.
 - `plugin_release_audit`: check validation, README/license presence, marketplace metadata, suspicious local paths, secret-like values, symlinks, and Git cleanliness without printing matched secret values.
 - `plugin_context_audit`: summarize installed plugin manifests, Skill sizes, MCP counts, and `alwaysLoad` usage to find avoidable startup context pressure.
+- `plugin_fleet_audit`: compare every local plugin's source manifest, marketplace metadata, installed record, and installed manifest; also report stale cache versions and orphan records.
 
 ## Design
 

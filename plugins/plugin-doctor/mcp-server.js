@@ -7,7 +7,7 @@ const path = require("path");
 const { spawn } = require("child_process");
 
 const SERVER_NAME = "plugin_doctor";
-const SERVER_VERSION = "0.2.0";
+const SERVER_VERSION = "0.3.0";
 const ROOT = path.resolve(process.env.PLUGIN_DOCTOR_ROOT || process.env.CLAUDE_PROJECT_DIR || process.cwd());
 const CLAUDE_HOME = path.resolve(process.env.CLAUDE_HOME || path.join(os.homedir(), ".claude"));
 const PLUGIN_DATA = path.join(CLAUDE_HOME, "plugins", "data");
@@ -63,6 +63,15 @@ const tools = [
   {
     name: "plugin_context_audit",
     description: "Estimate Claude startup context pressure from CLAUDE.md, installed plugin manifests, skill files, and alwaysLoad MCPs.",
+    inputSchema: {
+      type: "object",
+      properties: {},
+      additionalProperties: false
+    }
+  },
+  {
+    name: "plugin_fleet_audit",
+    description: "Audit every plugin in the local-tools marketplace for source, marketplace, installed-record, and cache version consistency, plus stale caches and orphan records.",
     inputSchema: {
       type: "object",
       properties: {},
@@ -371,6 +380,91 @@ function marketplaceEntry(name) {
   const market = readJson(MARKETPLACE_FILE);
   if (!market.ok || !Array.isArray(market.value.plugins)) return null;
   return market.value.plugins.find((entry) => entry.name === name) || null;
+}
+
+function installedEntries() {
+  const installed = readJson(INSTALLED_FILE);
+  if (!installed.ok) throw new Error(`Cannot read installed plugin records: ${installed.error}`);
+  return installed.value.plugins || {};
+}
+
+function cacheVersions(name) {
+  const directory = path.join(PLUGIN_CACHE, "local-tools", name);
+  if (!fs.existsSync(directory)) return [];
+  return fs.readdirSync(directory, { withFileTypes: true })
+    .filter((entry) => entry.isDirectory())
+    .map((entry) => entry.name)
+    .sort();
+}
+
+function pluginFleetAudit() {
+  const market = readJson(MARKETPLACE_FILE);
+  if (!market.ok || !Array.isArray(market.value.plugins)) {
+    throw new Error(`Cannot read local marketplace: ${market.error || "plugins must be an array"}`);
+  }
+  const installed = installedEntries();
+  const rows = [];
+  const problems = [];
+  const warnings = [];
+  const marketNames = new Set();
+
+  for (const entry of market.value.plugins) {
+    const name = String(entry.name || "").trim();
+    if (!name) continue;
+    marketNames.add(name);
+    const sourcePath = entry.source ? canonicalPath(path.resolve(PLUGIN_DATA, entry.source)) : "";
+    const sourceManifest = sourcePath ? readJson(path.join(sourcePath, ".claude-plugin", "plugin.json")) : { ok: false, error: "source missing" };
+    const sourceVersion = sourceManifest.ok ? String(sourceManifest.value.version || "") : "";
+    const marketVersion = String(entry.version || "");
+    const records = installed[localKey(name)];
+    const record = Array.isArray(records) ? records[0] : null;
+    const installedVersion = record ? String(record.version || "") : "";
+    const installedManifest = record && record.installPath
+      ? readJson(path.join(record.installPath, ".claude-plugin", "plugin.json"))
+      : { ok: false, error: "not installed" };
+    const cacheVersion = installedManifest.ok ? String(installedManifest.value.version || "") : "";
+    const expectedVersion = sourceVersion || marketVersion;
+    const issues = [];
+
+    if (!entry.source || !sourcePath || !fs.existsSync(sourcePath)) issues.push("marketplace source missing");
+    if (!sourceManifest.ok) issues.push("source manifest missing or invalid");
+    if (sourceManifest.ok && sourceManifest.value.name !== name) issues.push("source manifest name differs");
+    if (marketVersion && sourceVersion && marketVersion !== sourceVersion) issues.push("marketplace version differs from source");
+    if (!record) issues.push("not installed");
+    if (record && (!record.installPath || !fs.existsSync(record.installPath))) issues.push("installed path missing");
+    if (record && expectedVersion && installedVersion !== expectedVersion) issues.push("installed version is stale");
+    if (record && installedManifest.ok && cacheVersion !== installedVersion) issues.push("installed manifest differs from record");
+    if (record && !installedManifest.ok) issues.push("installed manifest missing or invalid");
+
+    const versions = cacheVersions(name);
+    const stale = installedVersion ? versions.filter((version) => version !== installedVersion) : versions;
+    if (stale.length) warnings.push(`${name}: stale cache version(s) ${stale.join(", ")}`);
+    if (issues.length) problems.push(`${name}: ${issues.join("; ")}`);
+    rows.push({ name, sourceVersion, marketVersion, installedVersion, cacheVersion, issues });
+  }
+
+  for (const key of Object.keys(installed)) {
+    if (!key.endsWith("@local-tools")) continue;
+    const name = key.slice(0, -"@local-tools".length);
+    if (!marketNames.has(name)) problems.push(`${name}: installed record is not present in local marketplace`);
+  }
+
+  const lines = [
+    "Plugin fleet audit: local-tools",
+    problems.length ? "Status: Needs attention" : "Status: OK",
+    `Plugins: ${rows.length}; problems: ${problems.length}; cache warnings: ${warnings.length}`,
+    "",
+    "Versions (source | marketplace | installed | installed manifest):"
+  ];
+  for (const row of rows) {
+    lines.push(`- ${row.name}: ${row.sourceVersion || "-"} | ${row.marketVersion || "(manifest)"} | ${row.installedVersion || "-"} | ${row.cacheVersion || "-"}${row.issues.length ? " [ATTENTION]" : ""}`);
+  }
+  if (problems.length) lines.push("", "Problems:", ...problems.map((item) => `- ${item}`));
+  if (warnings.length) lines.push("", "Cache warnings:", ...warnings.map((item) => `- ${item}`));
+  if (problems.some((item) => item.includes("installed version is stale"))) {
+    lines.push("", "Use `claude plugin update <name>@local-tools --scope user` after fixing marketplace/source metadata.");
+  }
+  return lines.join("\n");
 }
 
 async function pluginCheck(args = {}) {
@@ -760,6 +854,7 @@ async function callTool(name, args) {
   if (name === "plugin_install_local") return pluginInstallLocal(args);
   if (name === "plugin_release_audit") return pluginReleaseAudit(args);
   if (name === "plugin_context_audit") return pluginContextAudit(args);
+  if (name === "plugin_fleet_audit") return pluginFleetAudit(args);
   throw new Error(`Unknown tool: ${name}`);
 }
 
@@ -832,6 +927,7 @@ function createParser(onMessage) {
 async function selfTest() {
   const check = await pluginCheck({ pluginPath: __dirname, probeMcp: false });
   const audit = pluginContextAudit();
+  const fleet = pluginFleetAudit();
   const temporary = fs.mkdtempSync(path.join(ROOT, ".plugin-doctor-self-test-"));
   try {
     fs.mkdirSync(path.join(temporary, ".claude-plugin"), { recursive: true });
@@ -856,7 +952,8 @@ async function selfTest() {
       checked: check.includes("Plugin check"),
       skillOnlyChecked: skillOnly.includes("Status: OK") && skillOnly.includes(".mcp.json is optional"),
       privacyScanChecked: privacy.some((item) => item.rule === "personal home path"),
-      audited: audit.includes("Context audit")
+      audited: audit.includes("Context audit"),
+      fleetAudited: fleet.includes("Plugin fleet audit")
     };
   } finally {
     fs.rmSync(temporary, { recursive: true, force: true });

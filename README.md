@@ -1,14 +1,15 @@
 # claude-code-plugin-doctor
 
-[![Version](https://img.shields.io/badge/version-0.2.0-blue)]()
+[![Version](https://img.shields.io/badge/version-0.3.0-blue)]()
 [![License](https://img.shields.io/badge/license-MIT-green)]()
 
 `plugin-doctor` is a local Claude Code plugin for diagnosing plugin load
 failures, testing MCP startup, checking installed cache consistency, and
 auditing a plugin before publication.
 
-It is deliberately small: four high-level tools cover diagnosis, safe local
-installation, release readiness, and context-cost auditing.
+It is deliberately small: five high-level tools cover diagnosis, fleet
+consistency, safe local installation, release readiness, and context-cost
+auditing.
 
 ## What It Checks
 
@@ -17,6 +18,8 @@ installation, release readiness, and context-cost auditing.
 - Optional MCP commands, Node syntax, `initialize`, and `tools/list`.
 - JSONL and `Content-Length` MCP framing.
 - Manifest, marketplace, installed-record, and active-cache version agreement.
+- Full local marketplace audits, including stale cache versions and orphaned
+  installed records.
 - Release metadata, README/license presence, suspicious local paths,
   secret-like values, symlinks, and Git worktree state.
 - Installed Skill sizes, manifest sizes, MCP counts, and `alwaysLoad` usage.
@@ -74,6 +77,12 @@ Checks a plugin and optional marketplace repository before publication. Use
 
 Returns a compact inventory of installed plugin context pressure. It is an
 estimate, not an exact token bill.
+
+### `plugin_fleet_audit`
+
+Compares every plugin in the registered `local-tools` marketplace across its
+source manifest, marketplace entry, installed record, and installed manifest.
+It also reports stale cache directories without deleting them.
 
 ## Safety Model
 

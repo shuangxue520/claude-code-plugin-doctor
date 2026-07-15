@@ -8,6 +8,9 @@ results.
 - `plugin_release_audit` reads text files in the requested repository. It
   reports relative filenames and rule names, never matched secret values.
 - `plugin_context_audit` reads local Claude plugin metadata and file sizes.
+- `plugin_fleet_audit` reads local marketplace, installed-record, manifest, and
+  cache-directory metadata. It does not read plugin file contents or print
+  secret values.
 - `plugin_install_local` copies local plugin files and invokes Claude Code's
   marketplace/install commands. Those commands may contact the source already
   configured for that marketplace.
